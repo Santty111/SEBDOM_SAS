@@ -1,5 +1,4 @@
-﻿
-// wwwroot/js/stockManager.js
+﻿// wwwroot/js/stockManager.js
 
 // Configuración centralizada
 const stockSettings = {
@@ -15,8 +14,11 @@ const stockSettings = {
         { keywords: ['pulpa de jaiba', 'pulpa jaiba'], sizes: { 'pp': 20, 'p': 20 } },
         { keywords: ['vieiria'], sizes: { 'pp': 20, 'p': 20 } }
     ],
-    alertThreshold: 0.8 // 80% del valor de referencia para alertar
+    alertThreshold: 0.9 // 90% del valor de referencia para alertar
 };
+
+// Almacén de alertas ya mostradas (usa localStorage para persistencia)
+const ALERT_STORAGE_KEY = 'stockAlertsShown';
 
 // Función principal para manejar todo el stock
 function manageStockDisplays() {
@@ -24,6 +26,7 @@ function manageStockDisplays() {
     checkStockLevels();
 }
 
+// Aplica colores a los badges de stock
 function applyStockColorRules() {
     document.querySelectorAll('.stock-badge').forEach(badge => {
         const { productName, stock, referenceValue } = getProductInfo(badge);
@@ -44,40 +47,65 @@ function applyStockColorRules() {
     });
 }
 
+// Verifica niveles de stock y genera alertas
 function checkStockLevels() {
     const lowStockProducts = [];
     const criticalStockProducts = [];
+    const alertHistory = getAlertHistory();
 
     document.querySelectorAll('.stock-badge').forEach(badge => {
         const { productName, stock, referenceValue } = getProductInfo(badge);
 
         if (referenceValue !== undefined && stock > 0) {
             const threshold = referenceValue * stockSettings.alertThreshold;
+            const isBelowReference = stock < referenceValue;
+            const isCritical = stock < threshold;
+            const wasAlerted = alertHistory[productName];
+            const shouldAlert = !wasAlerted || (wasAlerted && stock >= referenceValue);
 
-            if (stock < referenceValue) {
-                lowStockProducts.push({
+            if (isBelowReference && shouldAlert) {
+                const productData = {
                     name: productName,
                     current: stock,
                     expected: referenceValue,
                     percentage: (stock / referenceValue * 100).toFixed(1)
-                });
+                };
 
-                if (stock < threshold) {
-                    criticalStockProducts.push({
-                        name: productName,
-                        current: stock,
-                        expected: referenceValue
-                    });
+                if (isCritical) {
+                    criticalStockProducts.push(productData);
+                } else {
+                    lowStockProducts.push(productData);
                 }
+
+                updateAlertHistory(productName, true);
+            } else if (stock >= referenceValue && wasAlerted) {
+                updateAlertHistory(productName, false);
             }
         }
     });
 
+    // Mostrar alertas solo si hay productos nuevos
     if (criticalStockProducts.length > 0) {
         showStockAlert('danger', 'Crítico: Stock muy bajo', criticalStockProducts);
     } else if (lowStockProducts.length > 0) {
         showStockAlert('warning', 'Advertencia: Stock bajo', lowStockProducts);
     }
+}
+
+// Obtiene el historial de alertas desde localStorage
+function getAlertHistory() {
+    return JSON.parse(localStorage.getItem(ALERT_STORAGE_KEY)) || {};
+}
+
+// Actualiza el historial de alertas
+function updateAlertHistory(productName, isAlertActive) {
+    const history = getAlertHistory();
+    if (isAlertActive) {
+        history[productName] = true;
+    } else {
+        delete history[productName];
+    }
+    localStorage.setItem(ALERT_STORAGE_KEY, JSON.stringify(history));
 }
 
 // Función auxiliar para obtener información del producto
@@ -102,6 +130,7 @@ function getProductInfo(badge) {
     return { productName, stock, referenceValue };
 }
 
+// Muestra alertas en la interfaz
 function showStockAlert(type, title, products) {
     const alertId = `stock-alert-${type}`;
 
@@ -145,6 +174,12 @@ function showStockAlert(type, title, products) {
     }
 }
 
+// Función para resetear alertas manualmente (opcional)
+function resetStockAlerts() {
+    localStorage.removeItem(ALERT_STORAGE_KEY);
+    refreshStockDisplays();
+}
+
 // Inicialización
 document.addEventListener('DOMContentLoaded', manageStockDisplays);
 
@@ -157,6 +192,7 @@ function refreshStockDisplays() {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         manageStockDisplays,
-        refreshStockDisplays
+        refreshStockDisplays,
+        resetStockAlerts
     };
 }

@@ -14,7 +14,6 @@
         @foreach (var line in lines)
         {
             @line
-
             <br />
         }
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -69,7 +68,9 @@
                                        class="form-control form-control-sm" style="background-color: #ffebee;" />
                             </td>
                             <td class="align-middle">
-                                <span class="badge @(item.StockActual <= 0 ? "bg-danger" : "bg-success")">
+                                <span class="badge stock-badge"
+                                      data-product="@item.NombreProducto.ToLower()"
+                                      data-stock="@item.StockActual">
                                         @item.StockActual.ToString("N2") @(item.UnidadMedida == UnidadMedida.Kilogramos ? "kg" : "lbs")
                                 </span>
                             </td>
@@ -91,6 +92,7 @@
 </div>
 
 @section Scripts {
+    <script src="~/js/stockManager.js" asp-append-version="true"></script>
     <script>
         // Validación en tiempo real para Salida
         document.querySelectorAll('input[name="Salida"]').forEach(input => {
@@ -108,5 +110,13 @@
                 }
             });
         });
+
+                applyStockColorRules();
+            });
+        });
+
+          function onStockUpdated() {
+            refreshStockDisplays();
+        }
     </script>
 }
